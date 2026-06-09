@@ -1,0 +1,36 @@
+{
+  "dependencies": {
+    "@create-figma-plugin/ui": "^4.0.3",
+    "@create-figma-plugin/utilities": "^4.0.3",
+    "preact": "^10.28.0"
+  },
+  "devDependencies": {
+    "@create-figma-plugin/build": "^4.0.3",
+    "@create-figma-plugin/tsconfig": "^4.0.3",
+    "@figma/plugin-typings": "1.121.0",
+    "@tabler/icons": "^3.35.0",
+    "fuse.js": "^7.1.0",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "build": "build-figma-plugin --typecheck --minify",
+    "watch": "build-figma-plugin --typecheck --watch",
+    "icons": "ncu -u @tabler/icons && pnpm install && node import-icons && pnpm run build && git add . && git commit -am \"update icons to v`pnpm info @tabler/icons version`\" && git push"
+  },
+  "figma-plugin": {
+    "editorType": [
+      "figma",
+      "figjam"
+    ],
+    "id": "1169807996149376642",
+    "name": "Tabler Icons",
+    "main": "src/main.ts",
+    "ui": "src/ui.tsx",
+    "networkAccess": {
+      "allowedDomains": [
+        "none"
+      ],
+      "reasoning": "This plugin does not require network access."
+    }
+  }
+}
