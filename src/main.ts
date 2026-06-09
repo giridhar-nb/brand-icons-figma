@@ -1,6 +1,7 @@
 import { on, emit, showUI } from "@create-figma-plugin/utilities";
 
 const STORAGE_KEY = 'customIcons'
+const THEME_KEY   = 'theme'
 
 export default function () {
   showUI({
@@ -8,15 +9,21 @@ export default function () {
     height: 400,
   });
 
-  // Load icons from storage and send to UI
+  // Load icons + theme together on startup
   on("LOAD_ICONS", async () => {
     const stored = await figma.clientStorage.getAsync(STORAGE_KEY)
-    emit("ICONS_LOADED", stored ?? [])
+    const theme  = await figma.clientStorage.getAsync(THEME_KEY) ?? 'dark'
+    emit("ICONS_LOADED", stored ?? [], theme)
   })
 
   // Save icons to storage
   on("SAVE_ICONS", async (icons: any[]) => {
     await figma.clientStorage.setAsync(STORAGE_KEY, icons)
+  })
+
+  // Save theme preference
+  on("SAVE_THEME", async (theme: string) => {
+    await figma.clientStorage.setAsync(THEME_KEY, theme)
   })
 
   // Insert icon onto canvas

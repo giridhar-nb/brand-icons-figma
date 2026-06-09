@@ -300,10 +300,18 @@ function Plugin() {
   const [showBulk, setShowBulk] = useState(false)
   const [editIcon, setEditIcon] = useState<Icon | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ icon: Icon; x: number; y: number } | null>(null)
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+
+  // Apply theme class to body — must target body so @create-figma-plugin/ui components inherit vars
+  useEffect(() => {
+    document.body.classList.remove('theme--dark', 'theme--light')
+    document.body.classList.add(`theme--${theme}`)
+  }, [theme])
 
   useEffect(() => {
-    on("ICONS_LOADED", (stored: Icon[]) => {
+    on("ICONS_LOADED", (stored: Icon[], savedTheme: string) => {
       setIcons(stored ?? [])
+      setTheme((savedTheme === 'light' ? 'light' : 'dark'))
       setLoaded(true)
     })
     emit("LOAD_ICONS")
@@ -312,6 +320,12 @@ function Plugin() {
   function saveIcons(next: Icon[]) {
     setIcons(next)
     emit("SAVE_ICONS", next)
+  }
+
+  function toggleTheme() {
+    const next: 'dark' | 'light' = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    emit("SAVE_THEME", next)
   }
 
   function handleSaveIcon(icon: Icon) {
@@ -471,7 +485,10 @@ function Plugin() {
             <Checkbox onChange={(e: JSX.TargetedEvent<HTMLInputElement>) => setOutlineStroke(e.currentTarget.checked)} value={outlineStroke}>
               <Text>Paste as outline</Text>
             </Checkbox>
-            <div style={{ textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+            <div style={{ textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+              <button class="theme-toggle" onClick={toggleTheme} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
+                {theme === 'dark' ? '☀️' : '🌙'}
+              </button>
               <button class="add-btn" onClick={() => setShowBulk(true)}>↑ Import SVGs</button>
               <button class="add-btn" onClick={() => setShowAdd(true)}>+ Add Icon</button>
             </div>
