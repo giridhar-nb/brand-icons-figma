@@ -19,6 +19,8 @@ import { h, JSX, Fragment } from 'preact'
 import { useState, useEffect, useMemo } from 'preact/hooks'
 import useSearch, { Icon } from './use-search'
 
+// ── helpers ──────────────────────────────────────────────────────────────────
+
 function uid() {
   return Math.random().toString(36).slice(2, 10)
 }
@@ -26,6 +28,8 @@ function uid() {
 function cleanSvg(raw: string) {
   return raw.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/on\w+="[^"]*"/g, '').trim()
 }
+
+// ── Icon button ───────────────────────────────────────────────────────────────
 
 function IconButton({
   icon,
@@ -66,6 +70,109 @@ function IconButton({
   )
 }
 
+// ── Bulk SVG import ───────────────────────────────────────────────────────────
+
+function BulkImportForm({
+  existingCategories,
+  onSave,
+  onCancel,
+}: {
+  existingCategories: string[]
+  onSave: (icons: Icon[]) => void
+  onCancel: () => void
+}) {
+  const [category, setCategory] = useState('')
+  const [previews, setPreviews] = useState<{ name: string; svg: string }[]>([])
+  const [error, setError] = useState('')
+
+  function handleFiles(e: Event) {
+    const files = Array.from((e.target as HTMLInputElement).files ?? [])
+    const svgFiles = files.filter(f => f.name.endsWith('.svg'))
+    if (svgFiles.length === 0) { setError('No SVG files selected'); return }
+    setError('')
+
+    Promise.all(
+      svgFiles.map(f =>
+        f.text().then(text => ({
+          name: f.name.replace(/\.svg$/i, '').toLowerCase().replace(/\s+/g, '-'),
+          svg: cleanSvg(text),
+        }))
+      )
+    ).then(setPreviews)
+  }
+
+  function handleImport() {
+    if (previews.length === 0) { setError('No SVG files loaded'); return }
+    onSave(previews.map(p => ({
+      id: uid(),
+      name: p.name,
+      svg: p.svg,
+      category: category.trim(),
+      tags: [],
+    })))
+  }
+
+  return (
+    <div class="add-form">
+      <div class="add-form__header">
+        <span class="add-form__title">Import SVG Files</span>
+        <button class="add-form__close" onClick={onCancel}>✕</button>
+      </div>
+
+      <label class="field-label">Category (applied to all)</label>
+      <input
+        class="field-input"
+        list="cat-list-bulk"
+        value={category}
+        onInput={(e: any) => setCategory(e.target.value)}
+        placeholder="e.g. Brand"
+      />
+      <datalist id="cat-list-bulk">
+        {existingCategories.map(c => <option value={c} />)}
+      </datalist>
+
+      <label class="field-label">Select SVG files</label>
+      <label class="file-drop">
+        <input
+          type="file"
+          accept=".svg"
+          multiple
+          style={{ display: 'none' }}
+          onChange={handleFiles}
+        />
+        <span class="file-drop__icon">↑</span>
+        <span>Click to choose SVG files</span>
+        <span class="file-drop__hint">Multiple files supported</span>
+      </label>
+
+      {previews.length > 0 && (
+        <div class="bulk-preview">
+          <p class="bulk-preview__count">{previews.length} icon{previews.length !== 1 ? 's' : ''} ready to import</p>
+          <div class="bulk-preview__grid">
+            {previews.map(p => (
+              <div key={p.name} class="bulk-preview__item" title={p.name}>
+                <span class="bulk-preview__svg" dangerouslySetInnerHTML={{ __html: p.svg }} />
+                <span class="bulk-preview__name">{p.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {error && <p class="field-error">{error}</p>}
+
+      <div class="add-form__actions">
+        <button class="btn-primary" onClick={handleImport} disabled={previews.length === 0}>
+          Import {previews.length > 0 ? `${previews.length} icons` : ''}
+        </button>
+        <button class="btn-secondary" onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+
+// ── Add icon form ─────────────────────────────────────────────────────────────
+
 function AddIconForm({
   initial,
   existingCategories,
@@ -103,16 +210,46 @@ function AddIconForm({
         <span class="add-form__title">{initial ? 'Edit Icon' : 'Add Icon'}</span>
         <button class="add-form__close" onClick={onCancel}>✕</button>
       </div>
+
       <label class="field-label">Name</label>
-      <input class="field-input" value={name} onInput={(e: any) => setName(e.target.value)} placeholder="e.g. my-logo" />
+      <input
+        class="field-input"
+        value={name}
+        onInput={(e: any) => setName(e.target.value)}
+        placeholder="e.g. my-logo"
+      />
+
       <label class="field-label">Category</label>
-      <input class="field-input" list="cat-list" value={category} onInput={(e: any) => setCategory(e.target.value)} placeholder="e.g. Brand" />
-      <datalist id="cat-list">{existingCategories.map(c => <option value={c} />)}</datalist>
+      <input
+        class="field-input"
+        list="cat-list"
+        value={category}
+        onInput={(e: any) => setCategory(e.target.value)}
+        placeholder="e.g. Brand"
+      />
+      <datalist id="cat-list">
+        {existingCategories.map(c => <option value={c} />)}
+      </datalist>
+
       <label class="field-label">Tags (comma-separated)</label>
-      <input class="field-input" value={tags} onInput={(e: any) => setTags(e.target.value)} placeholder="logo, social, brand" />
+      <input
+        class="field-input"
+        value={tags}
+        onInput={(e: any) => setTags(e.target.value)}
+        placeholder="logo, social, brand"
+      />
+
       <label class="field-label">SVG</label>
-      <textarea class="field-textarea" value={svg} onInput={(e: any) => setSvg(e.target.value)} placeholder='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">…</svg>' rows={5} />
+      <textarea
+        class="field-textarea"
+        value={svg}
+        onInput={(e: any) => setSvg(e.target.value)}
+        placeholder='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">…</svg>'
+        rows={5}
+      />
+
       {error && <p class="field-error">{error}</p>}
+
       <div class="add-form__actions">
         <button class="btn-primary" onClick={handleSave}>{initial ? 'Update' : 'Add Icon'}</button>
         <button class="btn-secondary" onClick={onCancel}>Cancel</button>
@@ -121,9 +258,23 @@ function AddIconForm({
   )
 }
 
-function ContextMenu({ icon, x, y, onInsert, onEdit, onDelete, onClose }: {
-  icon: Icon; x: number; y: number
-  onInsert: () => void; onEdit: () => void; onDelete: () => void; onClose: () => void
+// ── Context menu ──────────────────────────────────────────────────────────────
+
+function ContextMenu({
+  icon,
+  x, y,
+  onInsert,
+  onEdit,
+  onDelete,
+  onClose,
+}: {
+  icon: Icon
+  x: number
+  y: number
+  onInsert: () => void
+  onEdit: () => void
+  onDelete: () => void
+  onClose: () => void
 }) {
   return (
     <div class="ctx-overlay" onClick={onClose}>
@@ -136,6 +287,8 @@ function ContextMenu({ icon, x, y, onInsert, onEdit, onDelete, onClose }: {
   )
 }
 
+// ── Main plugin ───────────────────────────────────────────────────────────────
+
 function Plugin() {
   const [icons, setIcons] = useState<Icon[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -144,35 +297,70 @@ function Plugin() {
   const [stroke, setStroke] = useState('2')
   const [outlineStroke, setOutlineStroke] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
+  const [showBulk, setShowBulk] = useState(false)
   const [editIcon, setEditIcon] = useState<Icon | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ icon: Icon; x: number; y: number } | null>(null)
 
   useEffect(() => {
-    on("ICONS_LOADED", (stored: Icon[]) => { setIcons(stored ?? []); setLoaded(true) })
+    on("ICONS_LOADED", (stored: Icon[]) => {
+      setIcons(stored ?? [])
+      setLoaded(true)
+    })
     emit("LOAD_ICONS")
   }, [])
 
-  function saveIcons(next: Icon[]) { setIcons(next); emit("SAVE_ICONS", next) }
+  function saveIcons(next: Icon[]) {
+    setIcons(next)
+    emit("SAVE_ICONS", next)
+  }
 
   function handleSaveIcon(icon: Icon) {
     const next = icons.find(i => i.id === icon.id)
       ? icons.map(i => i.id === icon.id ? icon : i)
       : [...icons, icon]
-    saveIcons(next); setShowAdd(false); setEditIcon(null)
+    saveIcons(next)
+    setShowAdd(false)
+    setEditIcon(null)
   }
 
-  function handleDelete(id: string) { saveIcons(icons.filter(i => i.id !== id)) }
+  function handleBulkImport(imported: Icon[]) {
+    saveIcons([...icons, ...imported])
+    setShowBulk(false)
+  }
+
+  function handleDelete(id: string) {
+    saveIcons(icons.filter(i => i.id !== id))
+  }
 
   const existingCategories = useMemo(() =>
-    Array.from(new Set(icons.map(i => i.category).filter(Boolean))).sort(), [icons])
+    Array.from(new Set(icons.map(i => i.category).filter(Boolean))).sort()
+  , [icons])
 
   const results = useSearch(icons, search, category)
   const limit = 102
 
-  const categories: DropdownOption[] = [{ value: '', text: 'All categories' }, ...existingCategories.map(c => ({ value: c, text: c }))]
-  const strokes: DropdownOption[] = [{ value: '1', text: 'Thin' }, { value: '1.5', text: 'Light' }, { value: '2', text: 'Normal' }]
+  const categories: DropdownOption[] = [
+    { value: '', text: 'All categories' },
+    ...existingCategories.map(c => ({ value: c, text: c }))
+  ]
+
+  const strokes: DropdownOption[] = [
+    { value: '1', text: 'Thin' },
+    { value: '1.5', text: 'Light' },
+    { value: '2', text: 'Normal' },
+  ]
 
   if (!loaded) return <div class="loading">Loading…</div>
+
+  if (showBulk) {
+    return (
+      <BulkImportForm
+        existingCategories={existingCategories}
+        onSave={handleBulkImport}
+        onCancel={() => setShowBulk(false)}
+      />
+    )
+  }
 
   if (showAdd || editIcon) {
     return (
@@ -189,15 +377,22 @@ function Plugin() {
     <Fragment>
       {ctxMenu && (
         <ContextMenu
-          icon={ctxMenu.icon} x={ctxMenu.x} y={ctxMenu.y}
+          icon={ctxMenu.icon}
+          x={ctxMenu.x}
+          y={ctxMenu.y}
           onInsert={() => emit("SUBMIT", { name: ctxMenu.icon.name, svg: ctxMenu.icon.svg, outlineStroke })}
           onEdit={() => setEditIcon(ctxMenu.icon)}
           onDelete={() => handleDelete(ctxMenu.icon.id)}
           onClose={() => setCtxMenu(null)}
         />
       )}
+
       <div class="search">
-        <SearchTextbox onInput={(e: JSX.TargetedEvent<HTMLInputElement>) => setSearch(e.currentTarget.value)} placeholder={`Search ${icons.length} icons`} value={search} />
+        <SearchTextbox
+          onInput={(e: JSX.TargetedEvent<HTMLInputElement>) => setSearch(e.currentTarget.value)}
+          placeholder={`Search ${icons.length} icons`}
+          value={search}
+        />
         <Divider />
         <Container space="extraSmall">
           <VerticalSpace space="extraSmall" />
@@ -209,26 +404,65 @@ function Plugin() {
         </Container>
         <Divider />
       </div>
+
       <Container space="small">
         <VerticalSpace space="small" />
         {(search || category) && (
           <div>
-            <Text><Bold>Icons{search && ` matched "${search}"`}{category && ` in category "${category}"`}:</Bold></Text>
+            <Text>
+              <Bold>
+                Icons
+                {search && ` matched "${search}"`}
+                {category && ` in category "${category}"`}:
+              </Bold>
+            </Text>
             <VerticalSpace space="small" />
           </div>
         )}
       </Container>
+
       <Container space="small">
         <div class="grid">
           {results.slice(0, limit).map(icon => (
-            <IconButton key={icon.id} icon={icon} stroke={stroke} outlineStroke={outlineStroke} onContextMenu={(icon, x, y) => setCtxMenu({ icon, x, y })} />
+            <IconButton
+              key={icon.id}
+              icon={icon}
+              stroke={stroke}
+              outlineStroke={outlineStroke}
+              onContextMenu={(icon, x, y) => setCtxMenu({ icon, x, y })}
+            />
           ))}
         </div>
-        {results.length === 0 && icons.length > 0 && (<div><VerticalSpace space="medium" /><Text align="center"><Muted>No icons match your search.</Muted></Text><VerticalSpace space="large" /></div>)}
-        {icons.length === 0 && (<div><VerticalSpace space="medium" /><Text align="center"><Muted>No icons yet. Click "+ Add Icon" below.</Muted></Text><VerticalSpace space="large" /></div>)}
-        {results.length - limit > 0 && (<div><VerticalSpace space="medium" /><Text align="center"><Muted>…and {results.length - limit} more. Use search to find them.</Muted></Text></div>)}
-        <VerticalSpace space="extraLarge" /><VerticalSpace space="extraLarge" /><VerticalSpace space="extraLarge" />
+
+        {results.length === 0 && icons.length > 0 && (
+          <div>
+            <VerticalSpace space="medium" />
+            <Text align="center"><Muted>No icons match your search.</Muted></Text>
+            <VerticalSpace space="large" />
+          </div>
+        )}
+
+        {icons.length === 0 && (
+          <div>
+            <VerticalSpace space="medium" />
+            <Text align="center"><Muted>No icons yet. Click "+ Add Icon" below.</Muted></Text>
+            <VerticalSpace space="large" />
+          </div>
+        )}
+
+        {results.length - limit > 0 && (
+          <div>
+            <VerticalSpace space="medium" />
+            <Text align="center">
+              <Muted>…and {results.length - limit} more. Use search to find them.</Muted>
+            </Text>
+          </div>
+        )}
+        <VerticalSpace space="extraLarge" />
+        <VerticalSpace space="extraLarge" />
+        <VerticalSpace space="extraLarge" />
       </Container>
+
       <div class="footer">
         <Divider />
         <Container space="medium">
@@ -237,7 +471,8 @@ function Plugin() {
             <Checkbox onChange={(e: JSX.TargetedEvent<HTMLInputElement>) => setOutlineStroke(e.currentTarget.checked)} value={outlineStroke}>
               <Text>Paste as outline</Text>
             </Checkbox>
-            <div style={{ textAlign: 'right' }}>
+            <div style={{ textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button class="add-btn" onClick={() => setShowBulk(true)}>↑ Import SVGs</button>
               <button class="add-btn" onClick={() => setShowAdd(true)}>+ Add Icon</button>
             </div>
           </Columns>
