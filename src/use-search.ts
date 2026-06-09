@@ -1,26 +1,32 @@
 import Fuse from 'fuse.js'
 import { useState, useEffect } from 'preact/hooks'
 
-import { icons } from './icons.json'
+export type Icon = {
+  id: string
+  name: string
+  svg: string
+  category: string
+  tags: string[]
+}
 
-function useSearch(query: string, category: string) {
-	const values = Object.values(icons)
-	const [results, setResults] = useState(values)
+function useSearch(icons: Icon[], query: string, category: string) {
+  const [results, setResults] = useState<Icon[]>(icons)
 
-	const filterResult = new Fuse(values, {
-		threshold: 0.2,
-		keys: ['name', 'tags', 'category']
-	})
+  useEffect(() => {
+    const fuse = new Fuse(icons, {
+      threshold: 0.2,
+      keys: ['name', 'tags', 'category']
+    })
 
-	useEffect(() => {
-		if (query.trim()) {
-			setResults(filterResult.search(query.trim()).map(result => result.item).filter(icon => category === '' || icon.category == category))
-		} else {
-			setResults(values.filter(icon => category === '' || icon.category == category))
-		}
-	}, [query, category])
+    if (query.trim()) {
+      const found = fuse.search(query.trim()).map(r => r.item)
+      setResults(category ? found.filter(i => i.category === category) : found)
+    } else {
+      setResults(category ? icons.filter(i => i.category === category) : icons)
+    }
+  }, [query, category, icons])
 
-	return results
+  return results
 }
 
 export default useSearch
